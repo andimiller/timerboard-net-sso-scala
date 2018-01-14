@@ -28,5 +28,5 @@ libraryDependencies += "org.slf4j" % "slf4j-log4j12" % "1.7.25"
 
 // testing
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.4" % "test"
-libraryDependencies += "ru.yandex.qatools.embed" % "postgresql-embedded" % "2.6" % "test"
+libraryDependencies += "com.github.docker-java" % "docker-java" % "3.0.3" % "test"
 

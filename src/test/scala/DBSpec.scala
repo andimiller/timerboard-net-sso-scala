@@ -1,7 +1,6 @@
 import cats.effect.IO
 import doobie.util.transactor.Transactor
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpec, MustMatchers}
-import ru.yandex.qatools.embed.postgresql.EmbeddedPostgres
 import doobie._
 import doobie.implicits._
 import doobie.postgres._
@@ -13,22 +12,35 @@ import cats.implicits._
 import java.time.Instant
 import java.time.temporal.{ChronoUnit, TemporalUnit}
 
+import com.github.dockerjava.api.DockerClient
+import com.github.dockerjava.api.model.{ExposedPort, Ports}
+import com.github.dockerjava.core.DockerClientBuilder
+
 class DBSpec extends FlatSpec with MustMatchers with BeforeAndAfterAll with BeforeAndAfter {
 
-  /*
-  var postgres: EmbeddedPostgres = null
+  var docker: DockerClient = null
+  var postgresContainer: String = null
 
   override def beforeAll(): Unit = {
-    postgres = new EmbeddedPostgres()
-    postgres.start("localhost", 10123, "postgres", "postgres", "postgres")
+    docker = DockerClientBuilder.getInstance("tcp://localhost:2375").build()
+    val ports = new Ports()
+    val tcp5432 = ExposedPort.tcp(5432)
+    ports.bind(tcp5432, Ports.Binding.bindPort(32770))
+    val container = docker.createContainerCmd("postgres:latest")
+      .withEnv("POSTGRES_PASSWORD=foobar")
+      .withExposedPorts(tcp5432)
+      .withPortBindings(ports)
+      .exec()
+    postgresContainer = container.getId
+    docker.startContainerCmd(container.getId).exec()
+    Thread.sleep(3000)
   }
 
   override def afterAll(): Unit = {
-    postgres.stop()
+    docker.stopContainerCmd(postgresContainer).exec()
   }
-  */
 
-  lazy val xa = Transactor.fromDriverManager[IO]("org.postgresql.Driver", "jdbc:postgresql://localhost:32769/postgres", "postgres", "foobar")
+  lazy val xa = Transactor.fromDriverManager[IO]("org.postgresql.Driver", "jdbc:postgresql://localhost:32770/postgres", "postgres", "foobar")
 
   before {
     {
