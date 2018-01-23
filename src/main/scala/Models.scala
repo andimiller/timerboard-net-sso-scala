@@ -20,4 +20,8 @@ object Models {
       visibility: List[Int],
       `type`: String
   )
+
+  case class User(id: Long, name: String, corp: Long, alliance: Long) {
+    def getAccessIds = List(id, corp, alliance)
+  }
 }

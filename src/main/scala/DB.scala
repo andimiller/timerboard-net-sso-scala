@@ -34,23 +34,26 @@ object DB extends App {
                                            drop table if exists "timers";
                                            """.update.run
 
-
   object Groups {
     def insert(g: Models.Group): ConnectionIO[Int] =
       sql"insert into groups (name, admins, members) values (${g.name}, ${g.admins}, ${g.members})".update.run
     def list(): ConnectionIO[List[Models.Group]] =
       sql"select id, name, admins, members from groups".query[Models.Group].list
     def getById(id: Int): ConnectionIO[Option[Models.Group]] =
-      sql"select id, name, admins, members from groups where id = $id".query[Models.Group].option
+      sql"select id, name, admins, members from groups where id = $id"
+        .query[Models.Group]
+        .option
     def getByName(name: String): ConnectionIO[Option[Models.Group]] =
-      sql"select id, name, admins, members from groups where name = $name".query[Models.Group].option
+      sql"select id, name, admins, members from groups where name = $name"
+        .query[Models.Group]
+        .option
     def clear(): ConnectionIO[Int] =
       sql"delete from groups where 1=1".update.run
   }
 
   object Timers {
-    def insert(t: Models.Timer): ConnectionIO[Int]
-    = sql"""insert into timers ("user", system, planet, moon, owner, time, visibility, type) VALUES
+    def insert(t: Models.Timer): ConnectionIO[Int] =
+      sql"""insert into timers ("user", system, planet, moon, owner, time, visibility, type) VALUES
            (${t.user}, ${t.system}, ${t.planet}, ${t.moon}, ${t.owner}, ${t.time}, ${t.visibility}, ${t.`type`})
       """.update.run
     def listVisible(filter: List[Int]): ConnectionIO[List[Models.Timer]] =
@@ -62,7 +65,10 @@ object DB extends App {
   }
 
   val xa = Transactor.fromDriverManager[IO](
-    "org.postgresql.Driver", "jdbc:postgresql://localhost:32769/postgres", "postgres", "foobar"
+    "org.postgresql.Driver",
+    "jdbc:postgresql://localhost:32769/postgres",
+    "postgres",
+    "foobar"
   )
 
   val g1 = Models.Group(None, "testgroup2", List(1), List(2))
@@ -99,6 +105,5 @@ object DB extends App {
   }
   val result = program2.transact(xa).unsafeRunSync
   println(result)
-
 
 }
