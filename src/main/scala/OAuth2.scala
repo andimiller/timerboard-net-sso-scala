@@ -1,5 +1,6 @@
 import cats._
 import cats.syntax._
+import cats.implicits._
 import cats.effect._
 import io.circe.Decoder
 import org.http4s.Status.Redirection
@@ -20,6 +21,8 @@ class OAuth2[E[_]: Effect: Monad, LoginData: Decoder](
     userdataURL: Uri
 )(
     client: Client[E]
+)(
+    callbackFn: (OAuth2.TokenPayload, LoginData) => E[Response[E]]
 ) {
   import OAuth2.TokenPayload
 
@@ -43,15 +46,22 @@ class OAuth2[E[_]: Effect: Monad, LoginData: Decoder](
             state <- f.getFirst("state")
           } yield {
             for {
-              data <- client.expect[TokenPayload](
+              token <- client.expect[TokenPayload](
                 Request(
                   method = Method.POST,
                   uri = tokenURL,
                   headers = Headers(Authorization(BasicCredentials(clientId, clientSecret)))
                 ).withBody(UrlForm("grant_type" -> "authorization_code", "code" -> code))(Effect[E], UrlForm.entityEncoder(Effect[E], Charset.`UTF-8`))
               )(jsonOf[E, TokenPayload])
-            } yield data
-            Ok()
+              extradata <- client.expect[LoginData](
+                Request[E](
+                  method = Method.GET,
+                  uri = userdataURL,
+                  headers = Headers(Authorization(Credentials.Token(AuthScheme.Bearer, token.access_token)))
+                )
+              )(jsonOf[E, LoginData])
+              resp <- callbackFn(token, extradata)
+            } yield (resp)
           }
         }.getOrElse(InternalServerError())
       }
