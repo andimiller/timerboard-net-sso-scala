@@ -22,7 +22,7 @@ class OAuth2[E[_]: Effect: Monad, LoginData: Decoder](
 )(
     client: Client[E]
 )(
-    callbackFn: (OAuth2.TokenPayload, LoginData) => E[Response[E]]
+    callbackFn: OAuth2.CallbackPayload[LoginData] => E[Response[E]]
 ) {
   import OAuth2.TokenPayload
 
@@ -34,7 +34,7 @@ class OAuth2[E[_]: Effect: Monad, LoginData: Decoder](
       .withQueryParam("scope", scopes.mkString(" "))
       .withQueryParam("state", state)
 
-  val dsl = Http4sDsl[E]
+  private val dsl = Http4sDsl[E]
   import dsl._
 
   def callback = HttpService[E] {
@@ -47,21 +47,21 @@ class OAuth2[E[_]: Effect: Monad, LoginData: Decoder](
           } yield {
             for {
               token <- client.expect[TokenPayload](
-                Request(
-                  method = Method.POST,
-                  uri = tokenURL,
+                Request[E](
+                  method  = Method.POST,
+                  uri     = tokenURL,
                   headers = Headers(Authorization(BasicCredentials(clientId, clientSecret)))
-                ).withBody(UrlForm("grant_type" -> "authorization_code", "code" -> code))(Effect[E], UrlForm.entityEncoder(Effect[E], Charset.`UTF-8`))
+                ).withBody(UrlForm("grant_type" -> "authorization_code", "code" -> code))
               )(jsonOf[E, TokenPayload])
               extradata <- client.expect[LoginData](
                 Request[E](
-                  method = Method.GET,
-                  uri = userdataURL,
+                  method  = Method.GET,
+                  uri     = userdataURL,
                   headers = Headers(Authorization(Credentials.Token(AuthScheme.Bearer, token.access_token)))
                 )
               )(jsonOf[E, LoginData])
-              resp <- callbackFn(token, extradata)
-            } yield (resp)
+              resp <- callbackFn(OAuth2.CallbackPayload(token, state, extradata))
+            } yield resp
           }
         }.getOrElse(InternalServerError())
       }
@@ -69,6 +69,12 @@ class OAuth2[E[_]: Effect: Monad, LoginData: Decoder](
 }
 
 object OAuth2 {
+  case class CallbackPayload[T](
+      token: TokenPayload,
+      state: String,
+      logindata: T
+  )
+
   case class TokenPayload(
       access_token: String,
       token_type: String,
